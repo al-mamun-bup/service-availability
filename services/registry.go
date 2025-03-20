@@ -1,30 +1,61 @@
 package services
 
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+)
+
 type City struct {
-	ID         int
-	Name       string
-	Timezone   string
-	Country    string
-	TimeOffset int
+	ID         int    `json:"city_id"`
+	Name       string `json:"name"`
+	Country    string `json:"country_name"`
+	TimeOffset int    `json:"time_offset"`
 }
 
-type RegistryService struct{}
+type RegistryService struct {
+	cities map[int]City
+}
 
 func NewRegistryService() *RegistryService {
-	return &RegistryService{}
+	service := &RegistryService{
+		cities: make(map[int]City),
+	}
+	// Load city data initially
+	service.LoadCitiesFromRegistry()
+	return service
+}
+
+func (r *RegistryService) LoadCitiesFromRegistry() error {
+	url := "https://food-registry-v2.p-stageenv.xyz/api/v1/cities"
+	resp, err := http.Get(url)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return errors.New("failed to fetch cities from registry API")
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Cities []int           `json:"cities"`
+		Info   map[string]City `json:"info"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("error decoding city data: %v", err)
+	}
+
+	// Update the internal map
+	for _, cityID := range result.Cities {
+		if city, exists := result.Info[fmt.Sprintf("%d", cityID)]; exists {
+			r.cities[cityID] = city
+		}
+	}
+
+	fmt.Println("City data loaded successfully.")
+	return nil
 }
 
 func (r *RegistryService) GetCityByID(cityID int) (City, bool) {
-	cities := map[int]City{
-		1: {ID: 1, Name: "Dhaka", Timezone: "Asia/Dhaka", Country: "Bangladesh", TimeOffset: 21600},
-		2: {ID: 2, Name: "Chittagong", Timezone: "Asia/Dhaka", Country: "Bangladesh", TimeOffset: 21600},
-		3: {ID: 3, Name: "Sylhet", Timezone: "Asia/Dhaka", Country: "Bangladesh", TimeOffset: 21600},
-		4: {ID: 4, Name: "Kathmandu", Timezone: "Asia/Kathmandu", Country: "Nepal", TimeOffset: 20700},
-		5: {ID: 5, Name: "Khulna", Timezone: "Asia/Dhaka", Country: "Bangladesh", TimeOffset: 21600},
-		6: {ID: 6, Name: "Chitwan", Timezone: "Asia/Kathmandu", Country: "Nepal", TimeOffset: 20700},
-		7: {ID: 7, Name: "Pokhara", Timezone: "Asia/Kathmandu", Country: "Nepal", TimeOffset: 20700},
-	}
-
-	city, exists := cities[cityID]
+	city, exists := r.cities[cityID]
 	return city, exists
 }

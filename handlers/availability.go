@@ -22,7 +22,6 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 	checkType := c.QueryParam("check")
 	cityIDStr := c.QueryParam("city_id")
 
-	// Validate input
 	if checkType != "food" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid check type"})
 	}
@@ -32,18 +31,41 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid city_id"})
 	}
 
-	// Check if city exists
+	// Check if the city exists in the cache
 	cityData, exists := h.RegistryService.GetCityByID(cityID)
 	if !exists {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "City not found"})
+		// Try to refresh the registry data
+		if err := h.RegistryService.LoadCitiesFromRegistry(); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to refresh city data"})
+		}
+
+		// Re-check after refreshing
+		cityData, exists = h.RegistryService.GetCityByID(cityID)
+		if !exists {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "City not found"})
+		}
 	}
 
-	// Here, we simply return service availability as "available" for demo purposes
+	// Check time_offset based on country_name
+	var expectedOffset int
+	switch cityData.Country {
+	case "Bangladesh":
+		expectedOffset = 21600
+	case "Nepal":
+		expectedOffset = 20700
+	default:
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Unsupported country"})
+	}
+
+	// Validate the time_offset
+	if cityData.TimeOffset == expectedOffset {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"Success": true,
+		})
+	}
+
+	// If the time offset doesn't match, service is unavailable
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"message":    "Service is available",
-		"check_type": checkType,
-		"city_id":    cityID,
-		"city_name":  cityData.Name,
-		"timezone":   cityData.Timezone,
+		"Success": false,
 	})
 }
