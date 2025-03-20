@@ -11,10 +11,10 @@ import (
 )
 
 type AvailabilityHandler struct {
-	RegistryService *services.RegistryService
+	RegistryService services.RegistryServiceInterface
 }
 
-func NewAvailabilityHandler(service *services.RegistryService) *AvailabilityHandler {
+func NewAvailabilityHandler(service services.RegistryServiceInterface) *AvailabilityHandler {
 	return &AvailabilityHandler{
 		RegistryService: service,
 	}
@@ -61,6 +61,10 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 	currentDay := int(localTime.Weekday())
 
 	// Parse open hours for the current day
+	if currentDay < 0 || currentDay >= len(foodOpenHours) {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Invalid food open hours data"})
+	}
+
 	openHourData := foodOpenHours[currentDay]
 	timeSlots := strings.Split(openHourData, ",")
 
@@ -80,6 +84,5 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"Success": isAvailable,
-		//"LocalTime": localTime.Format("2006-01-02 15:04:05"),
 	})
 }

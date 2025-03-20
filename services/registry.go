@@ -7,6 +7,7 @@ import (
 	"net/http"
 )
 
+// City structure
 type City struct {
 	ID            int      `json:"city_id"`
 	Name          string   `json:"name"`
@@ -15,10 +16,19 @@ type City struct {
 	FoodOpenHours []string `json:"food_open_hours"` // Store open hours
 }
 
+// RegistryServiceInterface defines the methods for the registry service
+type RegistryServiceInterface interface {
+	LoadCitiesFromRegistry() error
+	GetCityByID(cityID int) (City, bool)
+	GetFoodOpenHours(cityID int) ([]string, error)
+}
+
+// RegistryService struct implementing the interface
 type RegistryService struct {
 	cities map[int]City
 }
 
+// NewRegistryService initializes the service
 func NewRegistryService() *RegistryService {
 	service := &RegistryService{
 		cities: make(map[int]City),
@@ -28,6 +38,7 @@ func NewRegistryService() *RegistryService {
 	return service
 }
 
+// LoadCitiesFromRegistry fetches city data from an external API
 func (r *RegistryService) LoadCitiesFromRegistry() error {
 	url := "https://food-registry-v2.p-stageenv.xyz/api/v1/cities"
 	resp, err := http.Get(url)
@@ -56,7 +67,7 @@ func (r *RegistryService) LoadCitiesFromRegistry() error {
 	return nil
 }
 
-// Fetch food_open_hours dynamically from the API
+// GetFoodOpenHours fetches food open hours dynamically from the API
 func (r *RegistryService) GetFoodOpenHours(cityID int) ([]string, error) {
 	url := fmt.Sprintf("https://food-registry-v2.p-stageenv.xyz/api/v1/settings/cities/%d", cityID)
 	resp, err := http.Get(url)
@@ -76,6 +87,7 @@ func (r *RegistryService) GetFoodOpenHours(cityID int) ([]string, error) {
 	return result.FoodOpenHours, nil
 }
 
+// GetCityByID retrieves a city by ID
 func (r *RegistryService) GetCityByID(cityID int) (City, bool) {
 	city, exists := r.cities[cityID]
 	return city, exists
