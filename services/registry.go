@@ -2,9 +2,10 @@ package services
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 )
 
 // City structure
@@ -25,27 +26,45 @@ type RegistryServiceInterface interface {
 
 // RegistryService struct implementing the interface
 type RegistryService struct {
-	cities map[int]City
+	cities      map[int]City
+	registryURL string
 }
 
 // NewRegistryService initializes the service
 func NewRegistryService() *RegistryService {
 	service := &RegistryService{
-		cities: make(map[int]City),
+		cities:      make(map[int]City),
+		registryURL: getRegistryURL(),
 	}
 	// Load city data initially
-	service.LoadCitiesFromRegistry()
+	if err := service.LoadCitiesFromRegistry(); err != nil {
+		log.Printf("Error loading cities: %v", err)
+	}
 	return service
+}
+
+// getRegistryURL retrieves the API URL from environment variables
+func getRegistryURL() string {
+	if url := os.Getenv("REGISTRY_API_URL"); url != "" {
+		return url
+	}
+	return "https://food-registry-v2.p-stageenv.xyz"
 }
 
 // LoadCitiesFromRegistry fetches city data from an external API
 func (r *RegistryService) LoadCitiesFromRegistry() error {
-	url := "https://food-registry-v2.p-stageenv.xyz/api/v1/cities"
+	url := fmt.Sprintf("%s/api/v1/cities", r.registryURL)
+	log.Printf("Fetching city data from: %s", url)
+
 	resp, err := http.Get(url)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return errors.New("failed to fetch cities from registry API")
+	if err != nil {
+		return fmt.Errorf("request error while fetching cities: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d while fetching cities", resp.StatusCode)
+	}
 
 	var result struct {
 		Cities []int           `json:"cities"`
@@ -53,35 +72,40 @@ func (r *RegistryService) LoadCitiesFromRegistry() error {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("error decoding city data: %v", err)
+		return fmt.Errorf("error decoding city data: %w", err)
 	}
 
-	// Update the internal map
 	for _, cityID := range result.Cities {
 		if city, exists := result.Info[fmt.Sprintf("%d", cityID)]; exists {
 			r.cities[cityID] = city
 		}
 	}
 
-	fmt.Println("City data loaded successfully.")
+	log.Println("City data loaded successfully.")
 	return nil
 }
 
 // GetFoodOpenHours fetches food open hours dynamically from the API
 func (r *RegistryService) GetFoodOpenHours(cityID int) ([]string, error) {
-	url := fmt.Sprintf("https://food-registry-v2.p-stageenv.xyz/api/v1/settings/cities/%d", cityID)
+	url := fmt.Sprintf("%s/api/v1/settings/cities/%d", r.registryURL, cityID)
+	log.Printf("Fetching food open hours from: %s", url)
+
 	resp, err := http.Get(url)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return nil, errors.New("failed to fetch food open hours from registry API")
+	if err != nil {
+		return nil, fmt.Errorf("request error while fetching food open hours: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d while fetching food open hours", resp.StatusCode)
+	}
 
 	var result struct {
 		FoodOpenHours []string `json:"food_open_hours"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error decoding food open hours: %v", err)
+		return nil, fmt.Errorf("error decoding food open hours: %w", err)
 	}
 
 	return result.FoodOpenHours, nil
