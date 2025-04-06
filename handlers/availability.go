@@ -10,13 +10,35 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type AvailabilityHandler struct {
-	RegistryService *services.RegistryService
+// type GeoService interface {
+// 	PointInPolygon(lat, long float64, polygon [][]string) bool
+// }
+
+// type AvailabilityHandler struct {
+// 	RegistryService *services.RegistryService
+// 	GeoService      GeoService
+// }
+
+// func NewAvailabilityHandler(service *services.RegistryService, geoService GeoService) *AvailabilityHandler {
+// 	return &AvailabilityHandler{
+
+//			RegistryService: service,
+//			GeoService:      geoService,
+//		}
+//	}
+type GeoService interface {
+	PointInPolygon(lat, long float64, polygon [][]string) bool
 }
 
-func NewAvailabilityHandler(service *services.RegistryService) *AvailabilityHandler {
+type AvailabilityHandler struct {
+	RegistryService services.RegistryServiceInterface
+	GeoService      GeoService
+}
+
+func NewAvailabilityHandler(service services.RegistryServiceInterface, geoService GeoService) *AvailabilityHandler {
 	return &AvailabilityHandler{
 		RegistryService: service,
+		GeoService:      geoService,
 	}
 }
 
@@ -26,7 +48,6 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 	latStr := c.QueryParam("lat")
 	longStr := c.QueryParam("long")
 
-	// Validate required parameters
 	if checkType != "food" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid check type"})
 	}
@@ -46,7 +67,6 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid longitude"})
 	}
 
-	// Get city details
 	cityData, exists := h.RegistryService.GetCityByID(cityID)
 	if !exists {
 		if err := h.RegistryService.LoadCitiesFromRegistry(cityID); err != nil {
@@ -58,24 +78,17 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 		}
 	}
 
-	// Fetch food open hours for the city
 	foodOpenHours, err := h.RegistryService.GetFoodOpenHours(cityID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch food open hours"})
 	}
 
-	// Get current UTC time and apply offset
 	currentTimeUTC := time.Now().UTC()
-	x, err := strconv.Atoi(cityData.TimeOffset)
-	y, err := strconv.Atoi(cityData.TimeOffset)
-	offsetHours := x / 3600
-	offsetMinutes := (y % 3600) / 60
-	localTime := currentTimeUTC.Add(time.Duration(offsetHours)*time.Hour + time.Duration(offsetMinutes)*time.Minute)
+	offsetSeconds, _ := strconv.Atoi(cityData.TimeOffset)
+	offset := time.Duration(offsetSeconds) * time.Second
+	localTime := currentTimeUTC.Add(offset)
 
-	// Get current day index (Sunday = 0, Monday = 1, ..., Saturday = 6)
 	currentDay := int(localTime.Weekday())
-
-	// Parse open hours for the current day
 	openHourData := foodOpenHours[currentDay]
 	timeSlots := strings.Split(openHourData, ",")
 
@@ -83,52 +96,20 @@ func (h *AvailabilityHandler) IsServiceAvailable(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Invalid food open hours format"})
 	}
 
-	// Convert open-close time range from string to int
-	openTime, _ := strconv.Atoi(timeSlots[0])  // Opening time in HHMM format
-	closeTime, _ := strconv.Atoi(timeSlots[1]) // Closing time in HHMM format
-
-	// Extract current hour and minute
+	openTime, _ := strconv.Atoi(timeSlots[0])
+	closeTime, _ := strconv.Atoi(timeSlots[1])
 	currentTimeInt := localTime.Hour()*100 + localTime.Minute()
-
-	// Check if current time is within the open hours
 	isTimeAvailable := currentTimeInt >= openTime && currentTimeInt <= closeTime
 
-	// Fetch geofence data from the registry service
 	geofence, err := services.FetchCityGeofence(cityID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch geofence data"})
 	}
 
-	// Check if the point is within the geofence
-	isWithinGeofence := PointInPolygon(lat, long, geofence.FoodGeofence)
-
-	// Both conditions must be true
+	isWithinGeofence := h.GeoService.PointInPolygon(lat, long, geofence.FoodGeofence)
 	isAvailable := isTimeAvailable && isWithinGeofence
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"Success": isAvailable,
 	})
-}
-
-// PointInPolygon checks if a point is inside a polygon using the ray-casting algorithm
-func PointInPolygon(lat, long float64, polygon [][]string) bool {
-	var points [][2]float64
-	for _, coord := range polygon {
-		latVal, _ := strconv.ParseFloat(coord[0], 64)
-		longVal, _ := strconv.ParseFloat(coord[1], 64)
-		points = append(points, [2]float64{latVal, longVal})
-	}
-
-	inside := false
-	j := len(points) - 1
-	for i := 0; i < len(points); i++ {
-		latI, longI := points[i][0], points[i][1]
-		latJ, longJ := points[j][0], points[j][1]
-
-		if (longI > long) != (longJ > long) && lat < (latJ-latI)*(long-longI)/(longJ-longI)+latI {
-			inside = !inside
-		}
-		j = i
-	}
-	return inside
 }
