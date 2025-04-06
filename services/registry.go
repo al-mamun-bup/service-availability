@@ -7,6 +7,12 @@ import (
 	"net/http"
 )
 
+// Define an interface for RegistryService that includes only the methods we need for testing
+type RegistryServiceInterface interface {
+	GetCityByID(cityID int) (City, bool)
+	LoadCitiesFromRegistry(cityID int) error
+	GetFoodOpenHours(cityID int) ([]string, error)
+}
 type City struct {
 	ID            int        `json:"city_id"`
 	Name          string     `json:"name"`
