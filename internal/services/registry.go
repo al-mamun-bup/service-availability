@@ -3,14 +3,14 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"service-availability/internal/models"
 )
 
-func FetchCitySettings(cityID string) (*models.CitySettings, error) {
-	url := fmt.Sprintf("https://food-registry-v2.p-stageenv.xyz/api/v1/settings/cities/%s", cityID)
+func FetchCitySettings(cityID int) (*models.CitySettings, error) {
+	url := fmt.Sprintf("https://food-registry-v2.p-stageenv.xyz/api/v1/settings/cities/%d", cityID)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -22,7 +22,7 @@ func FetchCitySettings(cityID string) (*models.CitySettings, error) {
 		return nil, fmt.Errorf("non-200 response from registry API: %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
@@ -36,7 +36,7 @@ func FetchCitySettings(cityID string) (*models.CitySettings, error) {
 	// Extract required fields manually
 	citySettings := &models.CitySettings{}
 
-	if cityIDVal, ok := result["city_id"].(float64); ok {
+	if cityIDVal, ok := result["city_id"].(int); ok {
 		citySettings.CityID = int(cityIDVal)
 	}
 
