@@ -18,8 +18,10 @@ type ServiceAvailabilityResponse struct {
 func CheckServiceAvailability(c echo.Context) error {
 	check := c.QueryParam("check")
 	cityIDStr := c.QueryParam("city_id")
+	latStr := c.QueryParam("lat")
+	longStr := c.QueryParam("long")
 
-	if check != "food" || cityIDStr == "" {
+	if check != "food" || cityIDStr == "" || latStr == "" || longStr == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error": "Missing or invalid query parameters",
 		})
@@ -32,10 +34,16 @@ func CheckServiceAvailability(c echo.Context) error {
 		})
 	}
 
-	// Fetch city settings
+	lat, err1 := strconv.ParseFloat(latStr, 64)
+	long, err2 := strconv.ParseFloat(longStr, 64)
+	if err1 != nil || err2 != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "Invalid lat or long format",
+		})
+	}
+
 	settings, err := services.FetchCitySettings(cityID)
 	if err != nil {
-		c.Logger().Errorf("fetch error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error": "Failed to fetch city settings",
 		})
@@ -45,7 +53,12 @@ func CheckServiceAvailability(c echo.Context) error {
 	now := time.Now()
 	isOpen := utils.IsWithinOpenHours(settings.FoodOpenHours, now)
 
-	if isOpen {
+	// Geofence check
+	point := utils.Point{Lat: lat, Lng: long}
+	isInside := utils.IsPointInsidePolygon(point, settings.FoodGeofence)
+
+	// Final check
+	if isOpen && isInside {
 		return c.JSON(http.StatusOK, ServiceAvailabilityResponse{Success: true})
 	}
 
