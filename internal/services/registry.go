@@ -9,7 +9,9 @@ import (
 	"service-availability/internal/models"
 )
 
-func FetchCitySettings(cityID int) (*models.CitySettings, error) {
+var FetchCitySettings = fetchCitySettings
+
+func fetchCitySettings(cityID int) (*models.CitySettings, error) {
 	url := fmt.Sprintf("https://food-registry-v2.p-stageenv.xyz/api/v1/settings/cities/%d", cityID)
 
 	resp, err := http.Get(url)
