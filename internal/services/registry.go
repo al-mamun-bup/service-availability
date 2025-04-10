@@ -10,9 +10,10 @@ import (
 )
 
 var FetchCitySettings = fetchCitySettings
+var RegistryBaseURL = "https://food-registry-v2.p-stageenv.xyz"
 
 func fetchCitySettings(cityID int) (*models.CitySettings, error) {
-	url := fmt.Sprintf("https://food-registry-v2.p-stageenv.xyz/api/v1/settings/cities/%d", cityID)
+	url := fmt.Sprintf("%s/api/v1/settings/cities/%d", RegistryBaseURL, cityID)
 
 	resp, err := http.Get(url)
 	if err != nil {
