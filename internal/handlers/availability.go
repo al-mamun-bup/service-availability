@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -59,7 +58,6 @@ func CheckServiceAvailability(c echo.Context) error {
 	point := utils.Point{Lat: lat, Lng: long}
 	isInside := false
 	res := 8
-	fmt.Println(settings.FoodHexagons)
 	for _, hexagon := range settings.FoodHexagons {
 		// Convert the hexagon (index) to a uint64 (H3 cell)
 		cell := h3.Cell(hexagon)
