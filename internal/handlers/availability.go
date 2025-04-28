@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	h3 "github.com/uber/h3-go/v4"
 
 	"service-availability/internal/services"
 	"service-availability/internal/utils"
@@ -53,10 +54,28 @@ func CheckServiceAvailability(c echo.Context) error {
 	now := time.Now()
 	isOpen := utils.IsWithinOpenHours(settings.FoodOpenHours, now)
 
-	// Geofence check
+	// Geofence check (using H3 hexagons)
 	point := utils.Point{Lat: lat, Lng: long}
-	isInside := utils.IsPointInsidePolygon(point, settings.FoodGeofence)
+	isInside := false
+	res := 8
+	for _, hexagon := range settings.FoodHexagons {
+		// Convert the hexagon (index) to a uint64 (H3 cell)
+		cell := h3.Cell(hexagon)
+	
+		// Convert the point (lat, long) to an H3 index at the same resolution
+		pointH3,err := h3.LatLngToCell(h3.LatLng{Lat: point.Lat, Lng: point.Lng}, res)
+		
+		if err != nil {
+			return err
+		}
 
+		// Check if the point (lat, long) is inside the current hexagon
+		if pointH3 == cell {
+			isInside = true
+			break
+		}
+	}
+	
 	// Final check
 	if isOpen && isInside {
 		return c.JSON(http.StatusOK, ServiceAvailabilityResponse{Success: true})

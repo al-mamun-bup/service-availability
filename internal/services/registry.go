@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"service-availability/internal/models"
+	"service-availability/internal/utils"
+	h3 "github.com/uber/h3-go/v4"
 )
 
 var FetchCitySettings = fetchCitySettings
@@ -44,13 +46,23 @@ func fetchCitySettings(cityID int) (*models.CitySettings, error) {
 	}
 
 	if geofence, ok := result["food_geofence"].([]interface{}); ok {
+		var boundary []h3.LatLng
 		for _, point := range geofence {
 			if pair, ok := point.([]interface{}); ok && len(pair) == 2 {
 				lat := fmt.Sprintf("%v", pair[0])
 				long := fmt.Sprintf("%v", pair[1])
+				// Convert lat, long to H3 LatLng
+				boundary = append(boundary, h3.NewLatLng(float64(pair[0].(float64)), float64(pair[1].(float64))))
 				citySettings.FoodGeofence = append(citySettings.FoodGeofence, []string{lat, long})
 			}
 		}
+		// Convert polygon to hexagons
+		hexagons, err := utils.FillPolygonWithHexes(boundary, 8) // You can adjust resolution as needed
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate hexagons: %w", err)
+		}
+		// Store hexagons in city settings
+		citySettings.FoodHexagons = hexagons
 	}
 
 	if hours, ok := result["food_open_hours"].([]interface{}); ok {
