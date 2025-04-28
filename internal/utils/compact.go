@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"fmt"
+
 	h3 "github.com/uber/h3-go/v4"
 )
 
@@ -61,5 +63,6 @@ func CustomCompact(cells []h3.Cell, res int) []h3.Cell {
 	for c := range current {
 		result = append(result, c)
 	}
+	fmt.Println(result)
 	return result
 }

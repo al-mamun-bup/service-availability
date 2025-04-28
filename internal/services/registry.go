@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"io"
 	"net/http"
 
@@ -49,21 +50,52 @@ func fetchCitySettings(cityID int) (*models.CitySettings, error) {
 		var boundary []h3.LatLng
 		for _, point := range geofence {
 			if pair, ok := point.([]interface{}); ok && len(pair) == 2 {
-				lat := fmt.Sprintf("%v", pair[0])
-				long := fmt.Sprintf("%v", pair[1])
-				// Convert lat, long to H3 LatLng
-				boundary = append(boundary, h3.NewLatLng(float64(pair[0].(float64)), float64(pair[1].(float64))))
-				citySettings.FoodGeofence = append(citySettings.FoodGeofence, []string{lat, long})
+				// Handle lat and long correctly with type assertion and conversion
+				var lat, long float64
+				switch v := pair[0].(type) {
+				case float64:
+					lat = v
+				case string:
+					latConv, err := strconv.ParseFloat(v, 64)
+					if err != nil {
+						return nil, fmt.Errorf("invalid lat value: %v", v)
+					}
+					lat = latConv
+				default:
+					return nil, fmt.Errorf("invalid lat type: %v", v)
+				}
+	
+				switch v := pair[1].(type) {
+				case float64:
+					long = v
+				case string:
+					longConv, err := strconv.ParseFloat(v, 64)
+					if err != nil {
+						return nil, fmt.Errorf("invalid long value: %v", v)
+					}
+					long = longConv
+				default:
+					return nil, fmt.Errorf("invalid long type: %v", v)
+				}
+	
+				// Add lat, long to boundary for H3 LatLng
+				boundary = append(boundary, h3.NewLatLng(lat, long))
+	
+				// Store lat, long as strings in FoodGeofence for later use (if needed)
+				citySettings.FoodGeofence = append(citySettings.FoodGeofence, []string{fmt.Sprintf("%v", lat), fmt.Sprintf("%v", long)})
 			}
 		}
+	
 		// Convert polygon to hexagons
-		hexagons, err := utils.FillPolygonWithHexes(boundary, 8) // You can adjust resolution as needed
+		hexagons, err := utils.FillPolygonWithHexes(boundary, 8) // Adjust resolution as needed
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate hexagons: %w", err)
 		}
+	
 		// Store hexagons in city settings
 		citySettings.FoodHexagons = hexagons
 	}
+	
 
 	if hours, ok := result["food_open_hours"].([]interface{}); ok {
 		for _, h := range hours {

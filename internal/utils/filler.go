@@ -20,10 +20,7 @@ func FillPolygonWithHexes(boundary []h3.LatLng, resolution int) ([]h3.Cell, erro
 	}
 
 	// Uncompact (if needed) — idempotent in this case but explicit
-	uncompacted, err := h3.UncompactCells(hexes, resolution)
-	if err != nil {
-		return nil, fmt.Errorf("error uncompacting: %w", err)
-	}
+	compacted:= CustomCompact(hexes, resolution)
 
-	return uncompacted, nil
+	return compacted, nil
 }
