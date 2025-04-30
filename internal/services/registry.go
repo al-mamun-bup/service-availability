@@ -87,7 +87,7 @@ func fetchCitySettings(cityID int) (*models.CitySettings, error) {
 		}
 	
 		// Convert polygon to hexagons
-		hexagons, err := utils.FillPolygonWithHexes(boundary, 8) // Adjust resolution as needed
+		hexagons, err := utils.FillPolygonWithHexes(boundary)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate hexagons: %w", err)
 		}
