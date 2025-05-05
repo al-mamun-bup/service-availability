@@ -3,82 +3,100 @@ package tests
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"service-availability/internal/utils"
+
 	h3 "github.com/uber/h3-go/v4"
 )
 
-// Helper polygon (square area near Dhaka)
-var polygon = []h3.LatLng{
-	h3.NewLatLng(23.7808875, 90.2792371),
-	h3.NewLatLng(23.7808875, 90.2892371),
-	h3.NewLatLng(23.7708875, 90.2892371),
-	h3.NewLatLng(23.7708875, 90.2792371),
+type h3Test struct {
+	name       string
+	boundary   []h3.LatLng
+	wantMinLen int
+	wantMaxLen int
 }
 
-// Test FillPolygonWithHexes returns expected count and values
-func TestFillPolygonWithHexes(t *testing.T) {
-	resolution := 8
+func TestPolygonToH3Indexes(t *testing.T) {
+	tests := []h3Test{
+		{
+			name: "Simple square polygon",
+			boundary: []h3.LatLng{
+				{Lat: 37.775, Lng: -122.418},
+				{Lat: 37.775, Lng: -122.416},
+				{Lat: 37.773, Lng: -122.416},
+				{Lat: 37.773, Lng: -122.418},
+			},
+			wantMinLen: 1,
+			wantMaxLen: 10000,
+		},
+		{
+			name: "Small triangle",
+			boundary: []h3.LatLng{
+				{Lat: 37.775, Lng: -122.418},
+				{Lat: 37.774, Lng: -122.417},
+				{Lat: 37.773, Lng: -122.419},
+			},
+			wantMinLen: 1,
+			wantMaxLen: 1000,
+		},
+		{
+			name: "real polygon",
+			boundary: []h3.LatLng{
+					{Lat: 22.37928754838105, Lng: 91.8551245973755},
+					{Lat: 22.382648561771163, Lng: 91.85044232911378},
+					{Lat: 22.3831921, Lng: 91.8450305},
+					{Lat: 22.378303774205396, Lng: 91.84135414734487},
+					{Lat: 22.378812304171703, Lng: 91.83475955128165},
+					{Lat: 22.38471763072648, Lng: 91.83516015632927},
+					{Lat: 22.388876780615917, Lng: 91.83023925869132},
+					{Lat: 22.39735341922802, Lng: 91.82893761691889},
+					{Lat: 22.395592872923455, Lng: 91.81261560466305},
+					{Lat: 22.390154729365367, Lng: 91.81016468313602},
+					{Lat: 22.384875099358183, Lng: 91.80616880921627},
+					{Lat: 22.3741565, Lng: 91.79800539999997},
+					{Lat: 22.3677876366085, Lng: 91.79717542117157},
+					{Lat: 22.366538167438947, Lng: 91.78930732588809},
+					{Lat: 22.37476333354025, Lng: 91.78374249516537},
+					{Lat: 22.373925162336484, Lng: 91.7786748377232},
+					{Lat: 22.37193611955777, Lng: 91.77476589457558},
+					{Lat: 22.35891941803026, Lng: 91.78065216712037},
+					{Lat: 22.35608563900547, Lng: 91.78306801909639},
+					{Lat: 22.3480602611479, Lng: 91.78430742683096},
+					{Lat: 22.344668994659045, Lng: 91.77486006604002},
+					{Lat: 22.32611327314083, Lng: 91.77433409882815},
+					{Lat: 22.318275692878757, Lng: 91.77423698400877},
+					{Lat: 22.28861697146761, Lng: 91.77101455576788},
+					{Lat: 22.27665928405241, Lng: 91.77192019805916},
+					{Lat: 22.248217580560578, Lng: 91.78990614735726},
+					{Lat: 22.25335169736675, Lng: 91.81040706435557},
+					{Lat: 22.265053575543337, Lng: 91.82974484699719},
+					{Lat: 22.274173152185, Lng: 91.80200449700938},
+					{Lat: 22.292966430532857, Lng: 91.79158490848394},
+					{Lat: 22.308084666173038, Lng: 91.7990395608338},
+					{Lat: 22.3193901, Lng: 91.81233070000008},
+					{Lat: 22.3295657, Lng: 91.83637279999994},
+					{Lat: 22.330211641081245, Lng: 91.84337936114503},
+					{Lat: 22.334295851430795, Lng: 91.84318119327702},
+					{Lat: 22.33395234074421, Lng: 91.84673117580803},
+					{Lat: 22.336466921608295, Lng: 91.84701959217682},
+					{Lat: 22.338663899926814, Lng: 91.84522661435015},
+					{Lat: 22.34073183784184, Lng: 91.84807922253728},
+					{Lat: 22.34707246195119, Lng: 91.85348082124028},
+					{Lat: 22.36208593037571, Lng: 91.85408427468266},
+					{Lat: 22.369478292920213, Lng: 91.85318569107666},
+					{Lat: 22.377382745555792, Lng: 91.8531075761963},
+		},
+		wantMinLen: 1,
+		wantMaxLen: 1000,
 
-	hexes, err := utils.FillPolygonWithHexes(polygon,resolution)
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if len(hexes) == 0 {
-		t.Error("Expected non-empty hex list, got 0")
-	}
-
-	for _, hex := range hexes {
-		
-		if !hex.IsValid() {
-			t.Error("Found invalid hex cell")
-		}
-	}
+	},
 }
 
-// Test FillPolygonWithHexes with empty polygon
-func TestFillPolygonWithHexesEmptyPolygon(t *testing.T) {
-	hexes, err := utils.FillPolygonWithHexes([]h3.LatLng{},8)
-	if err == nil {
-		t.Error("Expected error for empty polygon, got nil")
-	}
-	if hexes != nil {
-		t.Errorf("Expected nil hexes, got: %v", hexes)
-	}
-}
-
-// Test CompactHexagons compacts a known list correctly
-func TestCompactHexagons(t *testing.T) {
-	// Generate hexes for a polygon first
-	hexes, err := utils.FillPolygonWithHexes(polygon, 8)
-	if err != nil {
-		t.Fatalf("Error filling hexes: %v", err)
-	}
-
-	// Call CustomCompact which now returns an error as well
-	compact := utils.CustomCompact(hexes,8)
-	// Ensure the compacted result is less than or equal to the original size
-	if len(compact) > len(hexes) {
-		t.Errorf("Expected compacted size <= original, got %d > %d", len(compact), len(hexes))
-	}
-}
-
-
-// Test CompactHexagons with empty input
-func TestCompactHexagonsEmpty(t *testing.T) {
-	// We expect no error from CustomCompact, so we only check the result.
-	hexes := utils.CustomCompact([]h3.Cell{}, 8)
-
-	// Ensure the result is an empty slice
-	if len(hexes) != 0 {
-		t.Errorf("Expected empty result, got: %v", hexes)
-	}
-}
-
-// simulate error path if you modify logic to allow injection/mocking
-func TestFillPolygonWithHexesInvalidResolution(t *testing.T) {
-	_, err := utils.FillPolygonWithHexes(polygon,-1)
-	if err == nil {
-		t.Error("Expected error for invalid resolution, got nil")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			indexes := utils.PolygonToH3Indexes(tc.boundary)
+			assert.GreaterOrEqual(t, len(indexes), tc.wantMinLen)
+			assert.LessOrEqual(t, len(indexes), tc.wantMaxLen)
+		})
 	}
 }
