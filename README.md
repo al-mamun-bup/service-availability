@@ -3,7 +3,7 @@
 This project provides a RESTful API that checks **food service availability** for a city based on:
 
 - ✅ Open hours defined per city
-- ✅ Geofence logic using coordinates
+- ✅ Geofence logic using H3 Uber index
 
 Built with **Go 1.23** using the **Echo** web framework, the project follows **clean architecture** principles and integrates with a remote registry API for dynamic city settings.
 
