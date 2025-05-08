@@ -10,10 +10,27 @@ import (
 
 	"service-availability/internal/services"
 	"service-availability/internal/utils"
+	"service-availability/config"
 )
 
 type ServiceAvailabilityResponse struct {
 	Success bool `json:"Success"`
+}
+
+
+func IsPointInsideHexagons(lat, lng float64, hexagons []string, minResolution, maxResolution int) bool {
+	for _, hex := range hexagons {
+		for res := minResolution; res <= maxResolution; res++ {
+			pointH3, err := h3.LatLngToCell(h3.LatLng{Lat: lat, Lng: lng}, res)
+			if err != nil {
+				continue
+			}
+			if pointH3.String() == hex {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func CheckServiceAvailability(c echo.Context) error {
@@ -50,29 +67,18 @@ func CheckServiceAvailability(c echo.Context) error {
 		})
 	}
 
-	// Time check
+	// Check time-based availability
 	now := time.Now()
 	isOpen := utils.IsWithinOpenHours(settings.FoodOpenHours, now)
 
-	isInside := false
-	for _, hexagon := range settings.FoodHexagons {
-		cell := hexagon
-		for res := 7; res <= 9; res++ {
-			pointH3,_ := h3.LatLngToCell(h3.LatLng{Lat: lat, Lng: lng}, res)
-		// Check if the point (lat, long) is inside the current hexagon
-		if pointH3.String() == cell {
-			isInside = true
-			break
-		}
-	  }
-	  if isInside == true{
-		break
-	  }
-   }
-	// Final check
-	if isOpen && isInside {
-		return c.JSON(http.StatusOK, ServiceAvailabilityResponse{Success: true})
-	}
+	// Check geofence-based availability
+	min := config.AppConfig.H3.ResolutionMin
+    max := config.AppConfig.H3.ResolutionMax
+	
+	isInside := IsPointInsideHexagons(lat, lng, settings.FoodHexagons, min, max)
 
-	return c.JSON(http.StatusOK, ServiceAvailabilityResponse{Success: false})
+	// Final response
+	return c.JSON(http.StatusOK, ServiceAvailabilityResponse{
+		Success: isOpen && isInside,
+	})
 }

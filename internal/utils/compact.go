@@ -4,8 +4,12 @@ import (
 	"fmt"
 
 	h3 "github.com/uber/h3-go/v4"
+    "service-availability/config"
 )
 func PolygonToH3Indexes(boundary []h3.LatLng) []string {
+    min := config.AppConfig.H3.ResolutionMin
+    max := config.AppConfig.H3.ResolutionMax
+    
     gPoly := h3.GeoPolygon{
         GeoLoop: h3.GeoLoop{},
     }
@@ -15,7 +19,7 @@ func PolygonToH3Indexes(boundary []h3.LatLng) []string {
             Lng: c.Lng,
         })
     }
-    return customPolyFillUsingRange(gPoly, 7, 9)
+    return customPolyFillUsingRange(gPoly, min, max)
 }
 
 func customPolyFillUsingRange(geoPoly h3.GeoPolygon, minResolution, maxResolution int) []string {
@@ -75,7 +79,7 @@ func customPolyFillUsingRange(geoPoly h3.GeoPolygon, minResolution, maxResolutio
         }
     }
 
-    fmt.Println("Compacted h3 indexes len: ", len(compactedMap))
+    //fmt.Println("Compacted h3 indexes len: ", len(compactedMap))
     compacted := []string{}
     for k := range compactedMap {
         compacted = append(compacted, k)

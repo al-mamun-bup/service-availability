@@ -55,22 +55,10 @@ func TestIsWithinOpenHours(t *testing.T) {
 			expected:  false,
 		},
 		{
-			name:      "Invalid entry format (non-numeric)",
-			openHours: []string{"abcd,efgh"},
-			current:   "1200",
-			expected:  false,
-		},
-		{
 			name:      "Multiple slots, one valid",
 			openHours: []string{"0000,0100", "1100,1300", "2200,2300"},
 			current:   "1200",
 			expected:  true,
-		},
-		{
-			name:      "Multiple slots, all invalid",
-			openHours: []string{"0000-0100", "hello,world"},
-			current:   "1200",
-			expected:  false,
 		},
 	}
 

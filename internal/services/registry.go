@@ -50,39 +50,25 @@ func fetchCitySettings(cityID int) (*models.CitySettings, error) {
 		var boundary []h3.LatLng
 		for _, point := range geofence {
 			if pair, ok := point.([]interface{}); ok && len(pair) == 2 {
-				// Handle lat and long correctly with type assertion and conversion
-				var lat, long float64
-				switch v := pair[0].(type) {
-				case float64:
-					lat = v
-				case string:
-					latConv, err := strconv.ParseFloat(v, 64)
-					if err != nil {
-						return nil, fmt.Errorf("invalid lat value: %v", v)
-					}
-					lat = latConv
-				default:
-					return nil, fmt.Errorf("invalid lat type: %v", v)
-				}
-	
-				switch v := pair[1].(type) {
-				case float64:
-					long = v
-				case string:
-					longConv, err := strconv.ParseFloat(v, 64)
-					if err != nil {
-						return nil, fmt.Errorf("invalid long value: %v", v)
-					}
-					long = longConv
-				default:
-					return nil, fmt.Errorf("invalid long type: %v", v)
-				}
-	
+			// Handle lat and long correctly with type assertion and conversion
+			var lat, lng float64
+			latStr := fmt.Sprintf("%v", pair[0])
+			lngStr := fmt.Sprintf("%v", pair[1])
+
+			lat, err = strconv.ParseFloat(latStr, 64)
+			if err != nil {
+    			return nil, fmt.Errorf("invalid lat value: %v", pair[0])
+			}
+
+			lng, err = strconv.ParseFloat(lngStr, 64)
+			if err != nil {
+    			return nil, fmt.Errorf("invalid long value: %v", pair[1])
+			}
+
 				// Add lat, long to boundary for H3 LatLng
-				boundary = append(boundary, h3.NewLatLng(lat, long))
-	
+				boundary = append(boundary, h3.NewLatLng(lat, lng))
 				// Store lat, long as strings in FoodGeofence for later use (if needed)
-				citySettings.FoodGeofence = append(citySettings.FoodGeofence, []string{fmt.Sprintf("%v", lat), fmt.Sprintf("%v", long)})
+				citySettings.FoodGeofence = append(citySettings.FoodGeofence, []string{fmt.Sprintf("%v", lat), fmt.Sprintf("%v", lng)})
 			}
 		}
 	
